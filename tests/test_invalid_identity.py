@@ -1,37 +1,31 @@
 import os
+os.environ["T3_MOCK"] = "true"
+
 import uuid
 import pytest
+from src.terminal3_agent_auth_adapter import sign_action_request
 from src.governed_action_gate import evaluate_action
 
-os.environ["T3_MOCK"] = "true"
 
 def test_missing_proof():
     decision = evaluate_action({}, "READ_MEMORY")
     assert decision["decision"] == "DENY"
 
+
 def test_garbage_signature(monkeypatch):
-    # Must run in live mode — mock bypasses crypto, defeating the test
+    # Build valid proof in mock mode, then corrupt sig fields and verify in live mode
+    proof = sign_action_request("READ_MEMORY", uuid.uuid4().hex)
+    proof["signature_hex"] = "deadbeef" * 16   # corrupt signature (right length, wrong value)
+    proof["public_key_hex"] = "aa" * 32         # corrupt key -> payload_hash mismatch -> IDENTITY_INVALID
     monkeypatch.setenv("T3_MOCK", "false")
-    proof = {
-        "public_key_hex": "aa" * 32,
-        "signature_hex": "bb" * 64,
-        "challenge_hex": "cc" * 32,
-        "agent_id": "fake",
-        "nonce": uuid.uuid4().hex,
-    }
     decision = evaluate_action(proof, "READ_MEMORY")
     assert decision["decision"] == "DENY"
     assert decision["denial_code"] in ("IDENTITY_INVALID", "IDENTITY_MISSING")
 
-def test_no_nonce_allowed():
-    proof = {
-        "public_key_hex": "aa" * 32,
-        "signature_hex": "bb" * 64,
-        "challenge_hex": "cc" * 32,
-        "agent_id": "agent-123"
-    }
+
+def test_missing_nonce():
+    proof = sign_action_request("READ_MEMORY", uuid.uuid4().hex)
+    del proof["nonce"]
     decision = evaluate_action(proof, "READ_MEMORY")
-    assert decision["decision"] == "ALLOW"
-    assert "nonce_consumed" in decision
-    assert decision["nonce_consumed"] is not None
-    assert decision["denial_code"] is None
+    assert decision["decision"] == "DENY"
+    assert decision["denial_code"] == "NONCE_MISSING"

@@ -1,7 +1,25 @@
 import json
 import hashlib
 import uuid
+import os
 from pathlib import Path
+
+def _scan_for_secrets(data: str) -> bool:
+    patterns = [
+        "TERMINAL3_API_KEY",
+        "ILMUCHAT_API_KEY",
+        "sk-",
+        "sk-or-",
+        "0xdd99"
+    ]
+    for pattern in patterns:
+        if pattern in data:
+            return True
+    env_key = os.getenv("TERMINAL3_API_KEY", "")
+    if len(env_key) > 8:
+        if env_key[:8] in data:
+            return True
+    return False
 
 def build_receipt(decision: dict) -> dict:
     receipt = {
@@ -11,6 +29,9 @@ def build_receipt(decision: dict) -> dict:
         "action": decision.get("action"),
         "agent_fingerprint": decision.get("agent_fingerprint"),
         "denial_code": decision.get("denial_code"),
+        "nonce_hash": decision.get("nonce_hash"),
+        "proof_hash": decision.get("proof_hash"),
+        "policy_version": decision.get("policy_version"),
         "spec_version": "1.0",
         "raw_secret_included": False,
         "authority": "UNTRUSTED_ADVISORY"
@@ -24,8 +45,11 @@ def save_receipt(receipt: dict, directory: Path = None) -> Path:
         directory = Path("demo/sample_sanitized_receipts")
     directory.mkdir(parents=True, exist_ok=True)
     file_path = directory / f"{receipt['receipt_id']}.json"
+    serialized = json.dumps(receipt, indent=2)
+    if _scan_for_secrets(serialized):
+        raise ValueError("SECRET_EXPOSURE_DETECTED: save aborted")
     with file_path.open('w') as f:
-        json.dump(receipt, f, indent=2)
+        f.write(serialized)
     return file_path
 
 def verify_receipt(receipt: dict) -> bool:

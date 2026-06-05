@@ -1,7 +1,3 @@
-"""
-EFFV3 Verifiable Governed Agent Gateway — Demo Runner
-Runs 5 scenarios showing allow/deny/replay/invalid/receipt-inspect behavior.
-"""
 import os
 import sys
 import uuid
@@ -13,7 +9,7 @@ if "T3_MOCK" not in os.environ:
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.terminal3_agent_auth_adapter import sign_challenge
+from src.terminal3_agent_auth_adapter import sign_action_request
 from src.governed_action_gate import evaluate_action
 from src.execution_receipt import build_receipt, save_receipt, verify_receipt
 
@@ -42,9 +38,9 @@ def report(tag, decision, receipt=None):
 
 # ─── Scenario 1: Valid agent → READ_MEMORY → ALLOW ──────────────────────────
 header(1, "Valid agent -> READ_MEMORY -> ALLOW")
-proof = sign_challenge(os.urandom(32))
-proof["nonce"] = uuid.uuid4().hex
-d1 = evaluate_action(proof, "READ_MEMORY")
+nonce1 = uuid.uuid4().hex
+proof1 = sign_action_request("READ_MEMORY", nonce1)
+d1 = evaluate_action(proof1, "READ_MEMORY")
 r1 = build_receipt(d1)
 save_receipt(r1)
 ok1 = d1["decision"] == "ALLOW" and verify_receipt(r1)
@@ -54,8 +50,8 @@ results.append(ok1)
 
 # ─── Scenario 2: Valid agent → POLICY_MODIFY → DENY ACTION_FORBIDDEN ────────
 header(2, "Valid agent -> POLICY_MODIFY -> DENY ACTION_FORBIDDEN")
-proof2 = sign_challenge(os.urandom(32))
-proof2["nonce"] = uuid.uuid4().hex
+nonce2 = uuid.uuid4().hex
+proof2 = sign_action_request("POLICY_MODIFY", nonce2)
 d2 = evaluate_action(proof2, "POLICY_MODIFY")
 r2 = build_receipt(d2)
 save_receipt(r2)
@@ -64,11 +60,12 @@ print(f"  {PASS if ok2 else FAIL}", end="  ")
 report("s2", d2, r2)
 results.append(ok2)
 
-# ─── Scenario 3: Missing identity → DENY IDENTITY_MISSING ──────────────────
-header(3, "Missing identity -> DENY IDENTITY_MISSING or IDENTITY_INVALID")
-d3 = evaluate_action({}, "READ_MEMORY")
+# ─── Scenario 3: Invalid identity → DENY ────────────────────────────────────
+header(3, "Invalid/missing identity -> DENY")
+# Provide a nonce but no identity fields -> IDENTITY_MISSING
+d3 = evaluate_action({"nonce": uuid.uuid4().hex}, "READ_MEMORY")
 r3 = build_receipt(d3)
-ok3 = d3["decision"] == "DENY" and d3["denial_code"] in ("IDENTITY_MISSING", "IDENTITY_INVALID")
+ok3 = d3["decision"] == "DENY" and d3["denial_code"] in ("IDENTITY_MISSING", "IDENTITY_INVALID", "NONCE_MISSING")
 print(f"  {PASS if ok3 else FAIL}", end="  ")
 report("s3", d3)
 results.append(ok3)
@@ -76,12 +73,10 @@ results.append(ok3)
 # ─── Scenario 4: Nonce replay → second attempt DENY NONCE_REPLAYED ──────────
 header(4, "Nonce replay -> second attempt DENY NONCE_REPLAYED")
 shared_nonce = uuid.uuid4().hex
-proof4a = sign_challenge(os.urandom(32))
-proof4a["nonce"] = shared_nonce
+proof4a = sign_action_request("READ_MEMORY", shared_nonce)
 d4a = evaluate_action(proof4a, "READ_MEMORY")
 
-proof4b = sign_challenge(os.urandom(32))
-proof4b["nonce"] = shared_nonce
+proof4b = sign_action_request("LIST_SKILLS", shared_nonce)
 d4b = evaluate_action(proof4b, "LIST_SKILLS")
 
 ok4 = d4a["decision"] == "ALLOW" and d4b["decision"] == "DENY" and d4b["denial_code"] == "NONCE_REPLAYED"

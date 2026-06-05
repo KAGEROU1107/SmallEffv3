@@ -1,108 +1,156 @@
 import os
+import json
 import hashlib
+import datetime
+
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 ADAPTER_AUTHORITY = "UNTRUSTED_ADVISORY"
+AUDIENCE = "small-effv3-gate"
+PROOF_TTL_SECONDS = 300
+MOCK_AGENT_ID = "mock-agent-001"
+MOCK_PUBLIC_KEY_HEX = "aabbcc" + "0" * 58  # 64 hex chars = 32 bytes
+
 
 def key_fingerprint(raw_key_hex: str) -> str:
-    raw_key_bytes = bytes.fromhex(raw_key_hex)
-    to_hash = b"terminal3\x00" + raw_key_bytes
-    return hashlib.sha256(to_hash).hexdigest()[:12]
+    """sha256('terminal3\x00' + key_bytes)[:12] — never the raw key."""
+    return hashlib.sha256(b"terminal3\x00" + bytes.fromhex(raw_key_hex)).hexdigest()[:12]
 
-def get_identity() -> dict:
-    api_key = os.getenv("TERMINAL3_API_KEY", "")
-    if not api_key:
+
+def _canonical(obj: dict) -> str:
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"))
+
+
+def _sha256(s: str) -> str:
+    return hashlib.sha256(s.encode()).hexdigest()
+
+
+def _is_mock() -> bool:
+    return os.getenv("T3_MOCK", "false").lower() == "true"
+
+
+def _load_private_key() -> tuple:
+    """Returns (Ed25519PrivateKey, pub_key_hex, agent_id) or raises."""
+    raw = os.getenv("TERMINAL3_API_KEY", "").strip()
+    if not raw:
         raise ValueError("TERMINAL3_API_KEY not set")
-    
-    if api_key.startswith("0x"):
-        api_key = api_key[2:]
-    
-    if len(api_key) != 64:
-        raise ValueError("TERMINAL3_API_KEY must be 32 bytes (64 hex chars) after 0x prefix")
-    
-    try:
-        bytes.fromhex(api_key)
-    except ValueError:
-        raise ValueError("TERMINAL3_API_KEY must be valid hex")
-    
-    if os.getenv("T3_MOCK", "false").lower() == "true":
-        return {
-            "agent_id": "mock-agent-001",
-            "public_key_hex": "aabbcc" + "0" * 58,  # 64 chars total
-            "signed": True
+    if raw.startswith("0x"):
+        raw = raw[2:]
+    if len(raw) != 64:
+        raise ValueError("TERMINAL3_API_KEY must be 32 bytes (64 hex chars) after 0x")
+    key_bytes = bytes.fromhex(raw)
+    priv = Ed25519PrivateKey.from_private_bytes(key_bytes)
+    pub_bytes = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    pub_hex = pub_bytes.hex()
+    agent_id = key_fingerprint(pub_hex)
+    return priv, pub_hex, agent_id
+
+
+def sign_action_request(action: str, nonce: str) -> dict:
+    """
+    Build and sign a structured payload binding agent_id + action + nonce + audience.
+    Payload includes: agent_id, public_key_hex, action, nonce, issued_at, expires_at, audience.
+    Returns payload dict plus payload_hash and signature_hex.
+    """
+    now = datetime.datetime.now(datetime.timezone.utc)
+    expires = now + datetime.timedelta(seconds=PROOF_TTL_SECONDS)
+
+    if _is_mock():
+        payload = {
+            "agent_id": MOCK_AGENT_ID,
+            "public_key_hex": MOCK_PUBLIC_KEY_HEX,
+            "action": action,
+            "nonce": nonce,
+            "issued_at": now.isoformat(),
+            "expires_at": expires.isoformat(),
+            "audience": AUDIENCE,
         }
-    
-    private_key = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(api_key))
-    public_key = private_key.public_key()
-    public_key_bytes = public_key.public_bytes(Encoding.Raw, PublicFormat.Raw)
-    public_key_hex = public_key_bytes.hex()
-    agent_id = key_fingerprint(api_key)
-    
-    return {
+        payload_hash = _sha256(_canonical(payload))
+        return {
+            **payload,
+            "payload_hash": payload_hash,
+            "signature_hex": "deadbeef" + "0" * 120,  # Mock signature (128 hex chars = 64 bytes)
+        }
+
+    priv, pub_hex, agent_id = _load_private_key()
+    payload = {
         "agent_id": agent_id,
-        "public_key_hex": public_key_hex,
-        "signed": True
+        "public_key_hex": pub_hex,
+        "action": action,
+        "nonce": nonce,
+        "issued_at": now.isoformat(),
+        "expires_at": expires.isoformat(),
+        "audience": AUDIENCE,
+    }
+    payload_hash = _sha256(_canonical(payload))
+    signature = priv.sign(payload_hash.encode())
+    return {
+        **payload,
+        "payload_hash": payload_hash,
+        "signature_hex": signature.hex(),
     }
 
-def sign_challenge(challenge_bytes) -> dict:
-    if isinstance(challenge_bytes, str):
-        challenge_bytes = challenge_bytes.encode()
 
-    if os.getenv("T3_MOCK", "false").lower() == "true":
-        return {
-            "agent_id": "mock-agent-001",
-            "public_key_hex": "aabbcc" + "0" * 58,
-            "signature_hex": "deadbeef" + "0" * 120,
-            "challenge_hex": challenge_bytes.hex(),
-        }
-
-    api_key = os.getenv("TERMINAL3_API_KEY", "")
-    if not api_key:
-        raise ValueError("TERMINAL3_API_KEY not set")
-
-    if api_key.startswith("0x"):
-        api_key = api_key[2:]
-    
-    private_key = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(api_key))
-    signature = private_key.sign(challenge_bytes)
-    signature_hex = signature.hex()
-    challenge_hex = challenge_bytes.hex()
-    public_key = private_key.public_key()
-    public_key_bytes = public_key.public_bytes(Encoding.Raw, PublicFormat.Raw)
-    public_key_hex = public_key_bytes.hex()
-    agent_id = key_fingerprint(api_key)
-    
-    return {
-        "agent_id": agent_id,
-        "public_key_hex": public_key_hex,
-        "signature_hex": signature_hex,
-        "challenge_hex": challenge_hex
-    }
-
-def verify_identity_proof(proof: dict) -> tuple[bool, str]:
-    required_fields = ["agent_id", "public_key_hex", "signature_hex", "challenge_hex"]
-    for field in required_fields:
+def verify_action_request(proof: dict, expected_action: str) -> tuple[bool, str]:
+    """
+    Verify a signed action request.
+    Checks: required fields, action match, audience, expiry, agent_id=fingerprint(pubkey),
+    payload hash integrity, Ed25519 signature.
+    Mock mode: skips Ed25519 and fingerprint checks but still validates structure.
+    """
+    required = [
+        "agent_id", "public_key_hex", "action", "nonce",
+        "issued_at", "expires_at", "audience", "signature_hex", "payload_hash",
+    ]
+    for field in required:
         if field not in proof:
             return (False, "IDENTITY_MISSING")
 
-    if os.getenv("T3_MOCK", "false").lower() == "true":
-        return (True, "")
+    if proof["action"] != expected_action:
+        return (False, "IDENTITY_INVALID")
 
-    try:
-        public_key_bytes = bytes.fromhex(proof["public_key_hex"])
-        if len(public_key_bytes) != 32:
-            return (False, "IDENTITY_INVALID")
-        signature_bytes = bytes.fromhex(proof["signature_hex"])
-        if len(signature_bytes) != 64:
-            return (False, "IDENTITY_INVALID")
-        challenge_bytes = bytes.fromhex(proof["challenge_hex"])
-    except ValueError:
+    if proof["audience"] != AUDIENCE:
         return (False, "IDENTITY_INVALID")
 
     try:
-        public_key = Ed25519PublicKey.from_public_bytes(public_key_bytes)
-        public_key.verify(signature_bytes, challenge_bytes)
+        expires = datetime.datetime.fromisoformat(proof["expires_at"])
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        if now > expires:
+            return (False, "PROOF_EXPIRED")
+    except ValueError:
+        return (False, "IDENTITY_INVALID")
+
+    # Reconstruct payload exactly as sign_action_request built it (excludes payload_hash + sig)
+    _PAYLOAD_KEYS = ["agent_id", "public_key_hex", "action", "nonce", "issued_at", "expires_at", "audience"]
+    payload_fields = {k: proof[k] for k in _PAYLOAD_KEYS}
+    expected_hash = _sha256(_canonical(payload_fields))
+    if proof["payload_hash"] != expected_hash:
+        return (False, "IDENTITY_INVALID")
+
+    if _is_mock():
+        return (True, "")
+
+    # Live: verify agent_id == fingerprint(public_key)
+    try:
+        pub_key_hex = proof["public_key_hex"]
+        if len(bytes.fromhex(pub_key_hex)) != 32:
+            return (False, "IDENTITY_INVALID")
+        expected_fp = key_fingerprint(pub_key_hex)
+        if proof["agent_id"] != expected_fp:
+            return (False, "IDENTITY_INVALID")
+    except ValueError:
+        return (False, "IDENTITY_INVALID")
+
+    # Live: Ed25519 signature over payload_hash
+    try:
+        pub_bytes = bytes.fromhex(proof["public_key_hex"])
+        sig_bytes = bytes.fromhex(proof["signature_hex"])
+        if len(sig_bytes) != 64:
+            return (False, "IDENTITY_INVALID")
+        Ed25519PublicKey.from_public_bytes(pub_bytes).verify(sig_bytes, proof["payload_hash"].encode())
         return (True, "")
     except Exception:
         return (False, "IDENTITY_INVALID")
