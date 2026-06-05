@@ -1,0 +1,12 @@
+{
+  "receipt_id": "effv3-receipt-3f6e7a89bb7a",
+  "decision": "DENY",
+  "ts": "2026-06-05T21:32:07.896875Z",
+  "action": "POLICY_MODIFY",
+  "agent_fingerprint": "mock-agent-001",
+  "denial_code": "ACTION_FORBIDDEN",
+  "spec_version": "1.0",
+  "raw_secret_included": false,
+  "authority": "UNTRUSTED_ADVISORY",
+  "receipt_hash": "2020d305976b1c2f9fa4d64942adea3f64d7c98df6e9892d99d8773f7c7df718"
+}

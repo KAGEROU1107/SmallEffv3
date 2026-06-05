@@ -1,0 +1,12 @@
+{
+  "receipt_id": "effv3-receipt-bc5f3df53c93",
+  "decision": "ALLOW",
+  "ts": "2026-06-05T21:32:07.895197Z",
+  "action": "READ_MEMORY",
+  "agent_fingerprint": "mock-agent-001",
+  "denial_code": null,
+  "spec_version": "1.0",
+  "raw_secret_included": false,
+  "authority": "UNTRUSTED_ADVISORY",
+  "receipt_hash": "c7e6057262ac46e54b51f091d4081a1248ab2309c84bbb2bab7d1ed53bf880bc"
+}
