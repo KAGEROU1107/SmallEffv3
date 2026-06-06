@@ -30,9 +30,10 @@ def display_proposal_for_review(proposal: dict[str, Any]) -> str:
         f"║  Network:      {proposal.get('network', 'N/A'):<40} ║",
         f"║  Reason:       {proposal.get('reason', 'N/A')[:40]:<40} ║",
         "╠══════════════════════════════════════════════════════════╣",
-        f"║  Proposal Hash: {proposal.get('proposal_hash', 'N/A')[:38]:<38}  ║",
+        "╠══════════════════════════════════════════════════════════╣",
         "╚══════════════════════════════════════════════════════════╝",
     ]
+    lines.append(f"Proposal Hash: {proposal.get('proposal_hash', 'N/A')}")
     return "\n".join(lines)
 
 

@@ -48,14 +48,16 @@ class TestPolicyEngine:
         assert "ACTION_NOT_ALLOWED" in result["deny_codes"]
 
     def test_network_not_allowed(self):
-        proposal = _make_proposal(network="casper")
+        proposal = _make_proposal()
+        proposal["network"] = "casper"
         confirmation = _make_confirmation(proposal["proposal_hash"])
         result = evaluate_policy(proposal, confirmation, {})
         assert result["allow"] is False
         assert "NETWORK_NOT_ALLOWED" in result["deny_codes"]
 
     def test_recipient_invalid(self):
-        proposal = _make_proposal(recipient="too-short")
+        proposal = _make_proposal()
+        proposal["recipient"] = "too-short"
         confirmation = _make_confirmation(proposal["proposal_hash"])
         result = evaluate_policy(proposal, confirmation, {})
         assert result["allow"] is False
@@ -70,14 +72,16 @@ class TestPolicyEngine:
         assert "RECIPIENT_NOT_APPROVED" in result["deny_codes"]
 
     def test_amount_zero(self):
-        proposal = _make_proposal(amount=0)
+        proposal = _make_proposal()
+        proposal["amount_motes"] = "0"
         confirmation = _make_confirmation(proposal["proposal_hash"])
         result = evaluate_policy(proposal, confirmation, {})
         assert result["allow"] is False
         assert "AMOUNT_INVALID" in result["deny_codes"]
 
     def test_amount_negative(self):
-        proposal = _make_proposal(amount=-100)
+        proposal = _make_proposal()
+        proposal["amount_motes"] = "-100"
         confirmation = _make_confirmation(proposal["proposal_hash"])
         result = evaluate_policy(proposal, confirmation, {})
         assert result["allow"] is False
@@ -150,7 +154,8 @@ class TestPolicyEngine:
         assert len(result["policy_hash"]) == 64  # sha256 hex
 
     def test_mainnet_rejected(self):
-        proposal = _make_proposal(network="casper")
+        proposal = _make_proposal()
+        proposal["network"] = "casper"
         confirmation = _make_confirmation(proposal["proposal_hash"])
         result = evaluate_policy(proposal, confirmation, {})
         assert "NETWORK_NOT_ALLOWED" in result["deny_codes"]

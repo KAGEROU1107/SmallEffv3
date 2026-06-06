@@ -39,7 +39,7 @@ def validate_recipient(recipient: str) -> list[str]:
     errors = []
     if not recipient or not recipient.strip():
         errors.append("RECIPIENT_EMPTY")
-        return recipient
+        return errors
     recipient = recipient.strip()
     if not CASPER_ACCOUNT_HEX_PATTERN.match(recipient):
         errors.append("RECIPIENT_INVALID")
