@@ -1,38 +1,71 @@
-# EFFV3 — Verifiable Governed Agent Gateway
+# GUNGAN-FRAME — Multi-Persona Agent Orchestrator × Casper
 
-> Prototype: Terminal 3-authenticated governed agent execution with cryptographic identity, policy enforcement, and tamper-proof receipts.
+> **Casper Agentic Buildathon 2026 — Qualification Round Submission**
+> EFF V3 Verifiable Governed Agent Gateway + Casper Network Integration
 
-**Demo Video:** https://youtu.be/u6JjDT3Uizc
-
----
-
-## The Problem
-
-AI agents have no identity. Nothing stops a fake agent from impersonating a real one, replaying old requests, or acting without an audit trail.
-
-This prototype fixes three things:
-- **Who are you?** — Ed25519 identity proof bound to Terminal 3 API key
-- **Are you allowed?** — Policy gate that blocks forbidden actions
-- **What did you do?** — Hash-bound receipt with no secrets exposed
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![EFF V3](https://img.shields.io/badge/EFF-V3-green.svg)](https://github.com/KAGEROU1107/SmallEffv3)
+[![Casper](https://img.shields.io/badge/Casper-Testnet-orange.svg)](https://www.casper.network/ai)
 
 ---
 
-## How It Works
+## What Is This?
+
+A **multi-agent orchestration system** that coordinates 6 specialized AI personas to autonomously:
+1. **Analyze** Casper DeFi opportunities (NOCTIS — forensic analyst)
+2. **Formulate** strategy (KAGEROU — strategist)
+3. **Validate** compliance (HIMERU — ethics reviewer)
+4. **Execute** transactions on Casper Testnet (EXIA → CSPR.click)
+5. **Verify** outcomes (RX-0 — data integrity guardian)
+6. **Log** everything to immutable ARCLOG (VELVET_ARC — archivist)
+
+Every action is gated by the **TRIAD governance protocol** and produces **hash-bound receipts** — no agent can act without consensus, no action goes unrecorded.
+
+---
+
+## Architecture
 
 ```
-Agent (Ed25519 key)
-        │
-        ▼
-terminal3_agent_auth_adapter.py   ← proves identity via Terminal 3 API key
-        │
-        ▼
-governed_action_gate.py           ← checks policy + blocks replay attacks
-        │
-        ▼
-execution_receipt.py              ← issues hash-bound receipt (no secrets)
-        │
-        ▼
-ALLOW  or  DENY (IDENTITY_INVALID | ACTION_FORBIDDEN | NONCE_REPLAYED)
+Agent Swarm (OpenRouter Free Models)
+    │
+    ▼
+┌─────────────────────────────────────────────┐
+│         GUNGAN-FRAME Orchestrator           │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐    │
+│  │  NOCTIS  │ │  EXIA    │ │ KAGEROU  │    │
+│  │ Analyst  │ │ Engineer │ │Strategist│    │
+│  └──────────┘ └──────────┘ └──────────┘    │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐    │
+│  │  HIMERU  │ │  RX-0    │ │ VELVET   │    │
+│  │Compliance│ │ Auditor  │ │  ARC     │    │
+│  └──────────┘ └──────────┘ └──────────┘    │
+└──────────────────┬──────────────────────────┘
+                   │
+    ┌──────────────▼──────────────┐
+    │       TRIAD GATE            │  ← Governance: 3-persona deliberation
+    │  KAGEROU + HIMERU + NOCTIS  │     Free models cannot issue PASS
+    └──────────────┬──────────────┘
+                   │
+    ┌──────────────▼──────────────┐
+    │   Governed Model Router     │  ← V5.2, 13 slots, 5 keys, hash-only receipts
+    │   (OpenRouter + ILMU)       │     330 total attempts, circuit breaker
+    └──────────────┬──────────────┘
+                   │
+    ┌──────────────▼──────────────┐
+    │   Casper Integration Layer  │
+    │  ┌─────────┐ ┌──────────┐  │
+    │  │ MCP     │ │CSPR.click│  │  ← On-chain queries + tx signing
+    │  │ Server  │ │  Skill   │  │
+    │  └─────────┘ └──────────┘  │
+    │  ┌─────────┐ ┌──────────┐  │
+    │  │  x402   │ │CSPR.cloud│  │  ← Micropayments + middleware
+    │  │ Payment │ │   API    │  │
+    │  └─────────┘ └──────────┘  │
+    └──────────────┬──────────────┘
+                   │
+              ┌────▼────┐
+              │ Testnet │
+              └─────────┘
 ```
 
 ---
@@ -41,86 +74,95 @@ ALLOW  or  DENY (IDENTITY_INVALID | ACTION_FORBIDDEN | NONCE_REPLAYED)
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env        # add your TERMINAL3_API_KEY
-python demo/run_demo.py     # run all 5 scenarios
-pytest tests/ -v            # run all 12 tests
+cp .env.example .env    # add OPENROUTER_SUBAGENT_KEY + CSPR_CLICK_API_KEY
+
+# List available personas
+python src/orchestrator.py --list-personas
+
+# Run with specific personas
+python src/orchestrator.py --brief "Analyze Casper testnet yield opportunities" \
+  --personas NOCTIS,EXIA,KAGEROU,HIMERU,RX-0 --casper
+
+# Full demo with all 6 personas + Casper integration + TRIAD gate
+python src/orchestrator.py --demo --emit-json
 ```
 
 ### Environment Variables
 
-| Variable | What it does | Example |
-|---|---|---|
-| `TERMINAL3_API_KEY` | 0x-prefixed hex string — 32-byte Ed25519 seed | `0xa1b2c3...ef` (64 hex chars) |
-| `T3_MOCK` | Skip real crypto for local dev | `true` / `false` |
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `OPENROUTER_SUBAGENT_KEY` | Yes | OpenRouter API key for free-model personas |
+| `OPENROUTER_API_KEY_1..5` | No | Multi-key rotation (V5.2 governed router) |
+| `ILMUCHAT_API_KEY` | No | ILMU Chat terminal fallback |
+| `CSPR_CLICK_API_KEY` | No | Casper Testnet wallet + tx signing |
+| `T3_MOCK` | No | Use mock crypto for local dev (`true`/`false`) |
 
 ---
 
-## Terminal 3 Integration
+## Agent Personas
 
-| Topic | Detail |
-|---|---|
-| Key format | `0x` + 64 hex chars (32-byte Ed25519 private key seed) |
-| Live mode | `Ed25519PrivateKey.from_private_bytes(bytes.fromhex(key[2:]))` |
-| Mock mode | Returns fixture identity — no real crypto, no network call |
-| Fingerprint | `sha256(b"terminal3\x00" + pub_key_bytes)[:12]` — public key only, never raw seed |
-| Key exposure | Never — only 12-byte fingerprint used in logs and receipts |
-
----
-
-## Security Guarantees
-
-| Property | How |
-|---|---|
-| Cryptographic identity | Ed25519 signature over action + nonce + audience |
-| Replay protection | Atomic nonce file — `open(path, "x")` raises `FileExistsError` on reuse |
-| Policy enforcement | Allowlist — `POLICY_MODIFY`, `PERSONA_WRITE` always denied |
-| Tamper-proof receipts | `sha256(canonical_json)` as last field — any mutation breaks hash |
-| No secret leakage | `raw_secret_included=False` on every output |
-| Advisory authority | `UNTRUSTED_ADVISORY` label — agent output never treated as authoritative |
+| Persona | Role | Model Lane | Casper Action |
+|---------|------|------------|---------------|
+| **KAGEROU** | Strategist/Orchestrator | `deepseek-v4-flash:free` | Proposes yield opportunities, initiates deliberation |
+| **NOCTIS** | Forensic Analyst | `qwen3-next-80b:free` | On-chain data analysis, anomaly detection |
+| **EXIA** | Execution Engine | `llama-3.3-70b:free` | Signs tx via CSPR.click, queries MCP |
+| **HIMERU** | Compliance Officer | `gemma-4-31b-it:free` | Policy validation, forbidden-action blocker |
+| **RX-0** | Data Integrity | `nemotron-3-super:free` | Receipt verification, reputation scoring |
+| **VELVET_ARC** | Archivist | `llama-3.3-70b:free` | ARCLOG scene logging, instinct compression |
 
 ---
 
-## What Is Real vs Mocked
+## Governance Model
 
-| Component | Status |
-|---|---|
-| Ed25519 key derivation + signing | **Real** (`cryptography` library) |
-| Nonce store atomic file lock | **Real** (filesystem `x`-mode) |
-| sha256 hash-bound receipts | **Real** |
-| Policy enforcement | **Real** |
-| Terminal 3 live API endpoint | **Mocked** (`T3_MOCK=true` in demo) |
-| Live network attestation | **Mocked** |
-| Distributed nonce coordination | **Not implemented** |
+### TRIAD Gate
+Every action requires consensus from 3 reviewer personas:
+1. **KAGEROU** — Is the strategy sound?
+2. **HIMERU** — Is it compliant?
+3. **NOCTIS** — Is the evidence solid?
+
+Free-model outputs provide evidence but **cannot issue PASS alone** — only the main engine can authorize execution.
+
+### Receipt Ledger
+Every TRIAD verdict and agent action produces a hash-bound receipt:
+- `sha256(canonical_json(receipt))` as integrity proof
+- No raw secrets, prompts, or keys in receipts
+- Tamper-evident: any mutation breaks the hash
 
 ---
 
-## Test Coverage (12/12)
+## Test Coverage
 
-| Test file | What it proves |
-|---|---|
-| `test_valid_identity.py` | Valid agent gets ALLOW + clean receipt |
-| `test_forbidden_action.py` | POLICY_MODIFY, PERSONA_WRITE, unknown actions all denied |
-| `test_invalid_identity.py` | Missing proof, garbage signature, missing nonce all denied |
-| `test_replay_denial.py` | Same nonce twice = NONCE_REPLAYED |
-| `test_receipt_integrity.py` | Tamper detection, deny receipt has no secrets, fingerprint safety |
+```bash
+pytest tests/ -v
+```
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `test_valid_identity.py` | 3 | Key derivation, signing, verification |
+| `test_forbidden_action.py` | 3 | POLICY_MODIFY, PERSONA_WRITE, unknown denied |
+| `test_invalid_identity.py` | 3 | Missing proof, garbage sig, missing nonce |
+| `test_replay_denial.py` | 2 | Nonce replay → NONCE_REPLAYED |
+| `test_receipt_integrity.py` | 4 | Tamper detection, deny receipt, fingerprint |
+
+**15/15 tests passing.**
 
 ---
 
 ## Known Limitations
 
-- Hardcoded policy table — no dynamic updates
-- Nonce store is local filesystem — not distributed or horizontally scalable
-- Policy gate is local — root of trust depends on host integrity, no decentralized layer
-- No key rotation or revocation mechanism
-- No KMS or external secret management
-- Async agent workflows not covered
+- Odra smart contracts not yet compiled (requires Rust toolchain)
+- Casper Testnet tx signing requires `CSPR_CLICK_API_KEY`
+- x402 micropayment facilitator not yet integrated
+- MCP server calls are mocked in demo mode
 
----
+## Roadmap
 
-## Doc Gaps Filed
-
-5 gaps reported in [`docs/BUGS_AND_DOC_GAPS.md`](docs/BUGS_AND_DOC_GAPS.md):
-API key format ambiguity · missing Python SDK examples · mock mode behavior · HMAC vs Ed25519 inconsistency · undocumented error codes
+- [ ] Deploy AgentRegistry contract on Casper Testnet (Odra)
+- [ ] Implement x402 micropayment flow for agent-to-agent payments
+- [ ] Add ActionReceiptLedger on-chain contract
+- [ ] Build web dashboard for real-time agent monitoring
+- [ ] Integrate CSPR.trade MCP for live DeFi data
+- [ ] Multi-agent DAO governance execution
 
 ---
 
