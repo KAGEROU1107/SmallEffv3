@@ -1,131 +1,270 @@
-# Architecture — EFFV3 Verifiable Governed Agent Gateway
+# Architecture — Casper Agentic Buildathon 2026
+# EFFV3 × Casper: Multi-Persona Autonomous Agent System
 
-A lightweight, policy-enforced adapter that cryptographically verifies agent identity and enforces governance rules before any action executes.
+## Project Codename: GUNGAN-FRAME
 
----
-
-## Flow Diagram
-
-```
-Agent (Ed25519 key)
-        │
-        ▼
-terminal3_agent_auth_adapter.py   [sign / verify identity proof]
-        │
-        ▼
-governed_action_gate.py           [policy check + nonce replay guard]
-        │
-        ├── ALLOW ──▶ execution_receipt.py [hash-bound receipt]
-        │
-        └── DENY  ──▶ denial code returned
-                      (IDENTITY_INVALID | IDENTITY_MISSING | ACTION_FORBIDDEN | NONCE_REPLAYED)
-```
+A swarm of specialized AI agents that autonomously monitor, deliberate, and execute
+on-chain actions on the Casper Network — each agent bound by cryptographic identity,
+governance policy, and on-chain receipt.
 
 ---
 
-## Components
-
-### terminal3_agent_auth_adapter.py
-
-Handles cryptographic identity verification using the Terminal 3 API key.
-
-| Mode | Behavior |
-|---|---|
-| **Live** (`T3_MOCK=false`) | Derives Ed25519 private key from `0x`-prefixed hex seed, signs and verifies proofs |
-| **Mock** (`T3_MOCK=true`) | Returns fixture identity — no real cryptography |
-
-- Key fingerprint: `sha256(b"terminal3\x00" + pub_key_bytes)[:12]` — public key only, never raw seed
-- Raw key never leaves this component
-
----
-
-### governed_action_gate.py
-
-Enforces governance policy and replay protection.
-
-**Policy table:**
-
-| Action | Decision |
-|---|---|
-| `READ_MEMORY` | ALLOW |
-| `LIST_SKILLS` | ALLOW |
-| `POLICY_MODIFY` | DENY (`ACTION_FORBIDDEN`) |
-| `PERSONA_WRITE` | DENY (`ACTION_FORBIDDEN`) |
-| anything else | DENY (`ACTION_FORBIDDEN`) |
-
-**Replay guard:** writes nonce to `data/nonce_store/{nonce_id}.json` using `open(path, "x")`.
-`FileExistsError` → `NONCE_REPLAYED`.
-
----
-
-### execution_receipt.py
-
-Generates sanitized, hash-bound receipts for every decision.
-
-- Builds receipt dict: action, agent fingerprint, timestamp, nonce hash, decision
-- Last field = `sha256(canonical_json(receipt_without_hash))`
-- All outputs marked `raw_secret_included=False`
-- Receipts generated for both ALLOW and DENY decisions
-
----
-
-## Data Flow
-
-### ALLOW Path
+## System Overview
 
 ```
-1. Agent provides TERMINAL3_API_KEY (0x-prefixed hex)
-2. adapter → verifies identity → returns agent fingerprint
-3. gate → checks policy → records nonce via open("x")
-4. receipt → builds dict → computes sha256 hash → outputs receipt
-5. Action proceeds
-```
-
-### DENY Path
-
-```
-1. Invalid/missing key → IDENTITY_INVALID or IDENTITY_MISSING
-   OR
-2. Valid key + forbidden action → ACTION_FORBIDDEN
-   OR
-3. Valid key + allowed action + reused nonce → NONCE_REPLAYED
-
-→ Denial returned immediately, no receipt generated for identity failures
+┌─────────────────────────────────────────────────────────────┐
+│                    GUNGAN- FRAME                             │
+│                                                              │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
+│  │ KAGEROU  │  │  NOCTIS  │  │   EXIA   │  │ HIMERU   │   │
+│  │ Strategist│  │ Analyst  │  │ Engineer │  │ Compliance│   │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘   │
+│       │              │              │              │          │
+│       ▼              ▼              ▼              ▼          │
+│  ┌──────────────────────────────────────────────────────┐     │
+│  │           Agent Orchestrator (Cortex)                 │     │
+│  │  Multi-agent deliberation + consensus protocol        │     │
+│  └──────────────────────┬───────────────────────────────┘     │
+│                         │                                     │
+│  ┌──────────────────────▼───────────────────────────────┐     │
+│  │        Terminal 3 Auth Adapter (existing)             │     │
+│  │  Ed25519 identity · policy gate · nonce guard         │     │
+│  └──────────────────────┬───────────────────────────────┘     │
+│                         │                                     │
+│  ┌──────────────────────▼───────────────────────────────┐     │
+│  │           Casper Integration Layer                    │     │
+│  │  MCP Client · CSPR.click · x402 · CSPR.cloud         │     │
+│  └──────────────────────┬───────────────────────────────┘     │
+│                         │                                     │
+│                    ┌────▼────┐                                 │
+│                    │ Testnet  │                                 │
+│                    └─────────┘                                 │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐     │
+│  │              On-Chain Reputation Ledger               │     │
+│  │  Agent identity · action history · trust scores       │     │
+│  └──────────────────────────────────────────────────────┘     │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Security Boundaries
+## Agent Personas (V3 Full Cast)
 
-| Boundary | Mechanism |
-|---|---|
-| Cryptographic | Private key exists only inside adapter; never crosses component boundary |
-| Identity | Raw keys never shared — only 12-byte fingerprint used across components |
-| State | Nonce store is append-only via `open("x")` — replay prevented at filesystem level |
-| Execution | Receipts contain no secrets — `raw_secret_included=False` enforced |
-| Policy | Deny list hardcoded — cannot be bypassed without code change |
-
----
-
-## Live vs Mock Behavior
-
-| Aspect | Live Mode | Mock Mode |
-|---|---|---|
-| Identity | Real Ed25519 from `0x`-prefixed hex seed | Fixed fixture identity |
-| Crypto | `cryptography` library — sign + verify | No cryptography — static proof |
-| Nonce store | Real filesystem writes | Real filesystem writes (replay guard still active) |
-| Receipts | Hash-bound, agent-attributable | Hash-bound, mock identity |
-| Use case | Production / integration testing | Unit tests, CI/CD, local dev |
+| Persona | Role | Casper Action | Model Task |
+|---------|------|---------------|------------|
+| **KAGEROU** | Strategist/Orchestrator | Proposes yield opportunities, initiates deliberation | reason, analyse |
+| **NOCTIS** | Forensic Analyst | Analyzes on-chain data, flags anomalies | analyse, classify |
+| **EXIA** | Execution Engineer | Signs tx via CSPR.click, deploys contracts | parse, draft |
+| **HIMERU** | Compliance Officer | Validates actions against policy, blocks forbidden | classify, reason |
+| **RX-0** | Data Integrity Guardian | Verifies receipts, checks hashes, monitors | parse, analyse |
+| **BARBATOS** | Rapid Executor | Fast tx signing for time-sensitive ops | draft |
+| **VELVET_ARC** | Logging/Archival | ARCLOG compression, scene logging | summarize |
 
 ---
 
-## EFFV3 Mirror Patterns
+## Casper Integration Points
 
-| Pattern | Component | Implementation |
-|---|---|---|
-| Receipt LAST field = `sha256(canonical_json)` | `execution_receipt.py` | Receipt generation |
-| Nonce: `open(path, "x")` → `FileExistsError` = replay | `governed_action_gate.py` | Replay guard |
-| Fingerprint: `sha256(b"terminal3\x00" + pub_key_bytes)[:12]` | `terminal3_agent_auth_adapter.py` | Identity protection |
-| Denial codes: `IDENTITY_INVALID`, `IDENTITY_MISSING`, `ACTION_FORBIDDEN`, `NONCE_REPLAYED` | `governed_action_gate.py` | Error handling |
-| Authority label: `UNTRUSTED_ADVISORY` | `execution_receipt.py` | Receipt metadata |
-| `raw_secret_included=False` | `execution_receipt.py` | All receipt outputs |
+### 1. MCP Server (Casper Blockchain Queries)
+- **Casper MCP Server** — query account balance, block info, deploy status
+- **CSPR.trade MCP** — DEX price feeds, swap operations
+- Used by: NOCTIS (market analysis), KAGEROU (yield data), RX-0 (verification)
+
+### 2. CSPR.click AI Agent Skill
+- Wallet creation on Casper Testnet
+- Transaction signing via API key
+- Used by: EXIA (contract deployment), BARBATOS (fast execution)
+
+### 3. x402 Micropayments
+- Agents pay per API call (market data, oracle queries)
+- Facilitator pattern: agent signs payment proof, server responds with data
+- Enables agent-to-agent commerce (e.g., NOCTIS pays EXIA for data processing)
+
+### 4. Odra Smart Contracts (Testnet Deploy)
+- **AgentRegistry** — register agent identities + fingerprints
+- **ActionReceiptLedger** — on-chain receipt log (hash-bound, immutable)
+- **ReputationTracker** — agent trust scores based on historical accuracy
+- **ComplianceGate** — on-chain policy enforcement (forbidden action list)
+
+### 5. CSPR.cloud API
+- REST API for streamlined blockchain interaction
+- Streaming API for real-time event monitoring
+- Used by: all agents for lightweight queries
+
+---
+
+## Execution Flow (Single Action Cycle)
+
+```
+1. TRIGGER
+   └─ External event (price threshold,定时 trigger, user command)
+
+2. KAGEROU (Strategist)
+   ├─ Receives trigger via orchestrator
+   ├─ Queries Casper MCP for current state
+   ├─ Proposes action: {type, target, amount, justification}
+   └─ Broadcasts proposal to all agents
+
+3. NOCTIS (Analyst)
+   ├─ Pulls on-chain data via MCP
+   ├─ Runs risk assessment
+   └─ Returns: {risk_score, anomaly_flags, recommendation}
+
+4. HIMERU (Compliance)
+   ├─ Checks proposed action against policy
+   ├─ Cross-references forbidden actions list
+   └─ Returns: {compliance: PASS/FAIL, denial_code?}
+
+5. EXIA (Engineer)
+   ├─ If KAGEROU + NOCTIS + HIMERU all agree:
+   ├─ Builds transaction payload
+   ├─ Signs via CSPR.click skill
+   └─ Submits to Casper Testnet
+
+6. RX-0 (Auditor)
+   ├─ Verifies tx was included in block
+   ├─ Validates receipt hash matches expected
+   ├─ Updates reputation score
+   └─ Returns: {verified: bool, block_hash}
+
+7. BARBATOS (Executor/Failsafe)
+   └─ If primary tx fails: retry with adjusted params
+
+8. VELVET_ARC (Logger)
+   └─ Compresses scene into ARCLOG
+   └─ Writes to on-chain receipt ledger
+```
+
+---
+
+## Project Structure
+
+```
+SmallEffv3Part2/
+├── src/
+│   ├── terminal3_agent_auth_adapter.py    (existing — agent identity)
+│   ├── governed_action_gate.py            (existing — policy enforcement)
+│   ├── execution_receipt.py               (existing — receipt generation)
+│   ├── casper_mcp_client.py               (NEW — MCP protocol client)
+│   ├── cspr_click_skill.py                (NEW — wallet + tx signing)
+│   ├── agent_orchestrator.py              (NEW — multi-agent deliberation)
+│   ├── persona_registry.py                (NEW — persona definitions + prompts)
+│   ├── reputation_tracker.py              (NEW — on-chain trust scores)
+│   └── x402_client.py                     (NEW — micropayment client)
+├── contracts/
+│   ├── odra/
+│   │   ├── agent_registry/                (NEW — Odra smart contract)
+│   │   ├── action_receipt_ledger/         (NEW — on-chain receipt log)
+│   │   └── reputation/                    (NEW — trust tracking)
+│   └── wasm/                              (NEW — compiled WASM targets)
+├── agents/
+│   ├── strategist/                        (KAGEROU role definition)
+│   ├── analyst/                           (NOCTIS role definition)
+│   ├── engineer/                          (EXIA role definition)
+│   ├── compliance/                        (HIMERU role definition)
+│   ├── auditor/                           (RX-0 role definition)
+│   └── executor/                          (BARBATOS role definition)
+├── demo/
+│   ├── run_demo.py                         (existing — updated with Casper scenarios)
+│   └── casper_scenarios/                  (NEW — Casper-specific demo scripts)
+├── tests/
+│   ├── test_valid_identity.py              (existing)
+│   ├── test_forbidden_action.py            (existing)
+│   ├── test_invalid_identity.py            (existing)
+│   ├── test_replay_denial.py               (existing)
+│   ├── test_receipt_integrity.py           (existing)
+│   ├── test_casper_mcp.py                  (NEW)
+│   ├── test_agent_orchestrator.py          (NEW)
+│   ├── test_reputation.py                  (NEW)
+│   └── test_x402.py                        (NEW)
+├── docs/
+│   ├── ARCHITECTURE.md                     (this file)
+│   ├── BUILD_CASPER.md                     (NEW — build guide)
+│   ├── AGENT_PROTOCOL.md                   (NEW — agent deliberation protocol)
+│   └── SECURITY_MODEL.md                   (existing)
+├── requirements.txt
+├── .env.example
+├── README.md
+└── .github/workflows/ci.yml
+```
+
+---
+
+## Hackathon Deliverables Mapping
+
+**Working Prototype on Casper Testnet:**
+- CSPR.click skill creates a Testnet wallet
+- Agent registers identity on AgentRegistry contract
+- At least 1 on-chain transaction producing event
+- Receipt logged to ActionReceiptLedger
+
+**Open Source GitHub:**
+- All code in this repo, MIT licensed
+- README with architecture overview, setup instructions, demo walkthrough
+
+**Demo Video:**
+- Show: agent deliberation → policy check → tx signing → on-chain confirmation
+- Show: dashboard with agent activity + receipt verification
+- Show: community voting via CSPR.fans (screenshot/desktop recording)
+
+**Community Voting:**
+- Submit on CSPR.fans app
+- Top 3 by votes = auto-advance to finals
+
+**Judging Criteria Coverage:**
+| Criterion | How We Cover It |
+|-----------|-----------------|
+| Technical Execution | Ed25519 auth + Odra contracts + MCP integration |
+| Innovation & Originality | Multi-agent deliberation with on-chain governance |
+| AI/Agentic Systems | 6 personas with distinct roles, autonomous execution |
+| Real-World Applicability | DeFi yield routing + RWA oracle patterns |
+| UX & Design | Terminal dashboard + receipt visualization |
+| Working Smart Contracts | AgentRegistry + ActionReceiptLedger on Testnet |
+| Long-Term Launch | Open source, roadmap in docs, social channels |
+| Ecosystem Impact | Direct Casper integration, x402, MCP, Odra |
+
+---
+
+## Phase 0: Qualification Round Scope (June 1-30)
+
+Since we have ~3 weeks, here's the realistic scope:
+
+**Week 1 (June 6-12): Foundation**
+- [x] Branch from terminal3 bounty
+- [ ] Casper MCP client (query testnet state)
+- [ ] CSPR.click skill integration (wallet + basic tx)
+- [ ] Persona registry + agent orchestrator skeleton
+- [ ] AgentRegistry Odra contract (Rust → WASM)
+
+**Week 2 (June 13-19): Core Logic**
+- [ ] Multi-agent deliberation protocol
+- [ ] x402 client (micropayment)
+- [ ] ActionReceiptLedger contract
+- [ ] Reputation tracking
+- [ ] Integration tests
+
+**Week 3 (June 20-30): Ship**
+- [ ] Demo scenarios (yield alert → agent swarm → tx)
+- [ ] Dashboard (terminal UI or simple web)
+- [ ] README + docs pass
+- [ ] Demo video
+- [ ] Submit on DoraHacks + CSPR.fans
+
+---
+
+## Known Risks
+
+1. **Odra requires Rust toolchain** — if setup is complex, fallback: Python-based contract interaction via CLType JSON
+2. **CSPR.click API may have rate limits** — implement retry with backoff
+3. **MCP server may need auth** — budget time for auth flow
+4. **Testnet faucet availability** — pre-fund wallet early
+
+---
+
+## Future Work (Post-Qualification)
+
+- Multi-agent DAO governance (swarm voting on proposals)
+- RWA oracle with verifiable identity
+- Agent-to-agent x402 marketplace
+- Cross-chain agent bridge
+- Full V3 runtime migration to Casper mainnet
