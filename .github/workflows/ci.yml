@@ -2,12 +2,12 @@ name: CI
 on:
   push:
     branches:
-      - feature/terminal3-agent-auth-bounty
       - main
+      - smalleffv3part2
   pull_request:
     branches:
-      - feature/terminal3-agent-auth-bounty
       - main
+      - smalleffv3part2
 jobs:
   test:
     runs-on: ubuntu-latest

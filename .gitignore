@@ -1,8 +1,47 @@
+# Environment
 .env
+.env.*
+!.env.example
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
-data/nonce_store/
 *.egg-info/
 dist/
+build/
 .pytest_cache/
+*.egg
+
+# Secrets
+wallets/
+keys/
+*.pem
+*.secret
+*.key
+*.seed
+
+# Runtime
+runtime/receipts/*
+runtime/.gitkeep
+!.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (for future frontend)
+node_modules/
+dist/
+.next/
+out/
+
+# Rust (for contracts)
+target/
+Cargo.lock

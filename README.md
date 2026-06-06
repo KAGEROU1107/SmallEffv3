@@ -1,71 +1,44 @@
-# GUNGAN-FRAME — Multi-Persona Agent Orchestrator × Casper
+# SmallEFFV3 Part 2
 
-> **Casper Agentic Buildathon 2026 — Qualification Round Submission**
-> EFF V3 Verifiable Governed Agent Gateway + Casper Network Integration
+> A governed AI transaction agent that transforms user intent into a policy-checked, human-approved Casper Testnet action with verifiable receipts.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![EFF V3](https://img.shields.io/badge/EFF-V3-green.svg)](https://github.com/KAGEROU1107/SmallEffv3)
-[![Casper](https://img.shields.io/badge/Casper-Testnet-orange.svg)](https://www.casper.network/ai)
-
----
-
-## What Is This?
-
-A **multi-agent orchestration system** that coordinates 6 specialized AI personas to autonomously:
-1. **Analyze** Casper DeFi opportunities (NOCTIS — forensic analyst)
-2. **Formulate** strategy (KAGEROU — strategist)
-3. **Validate** compliance (HIMERU — ethics reviewer)
-4. **Execute** transactions on Casper Testnet (EXIA → CSPR.click)
-5. **Verify** outcomes (RX-0 — data integrity guardian)
-6. **Log** everything to immutable ARCLOG (VELVET_ARC — archivist)
-
-Every action is gated by the **TRIAD governance protocol** and produces **hash-bound receipts** — no agent can act without consensus, no action goes unrecorded.
+**Repository:** `KAGEROU1107/SmallEffv3`
+**Branch:** `smalleffv3part2`
+**License:** MIT
 
 ---
 
-## Architecture
+## Problem
+
+AI agents can parse natural-language intent, but turning that intent into a safe, verifiable blockchain transaction requires:
+
+1. **Structured proposals** — converting free text into validated transaction parameters
+2. **Deterministic policy** — enforcing limits, allowlists, and network restrictions
+3. **Human authorization** — ensuring a human reviews and approves before signing
+4. **Verifiable receipts** — cryptographic proof of what was decided and why
+
+Without these, an AI could propose unsafe transactions, exceed limits, or act without human oversight.
+
+---
+
+## Solution
+
+SmallEFFV3 Part 2 implements a governed transaction pipeline:
 
 ```
-Agent Swarm (OpenRouter Free Models)
-    │
-    ▼
-┌─────────────────────────────────────────────┐
-│         GUNGAN-FRAME Orchestrator           │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐    │
-│  │  NOCTIS  │ │  EXIA    │ │ KAGEROU  │    │
-│  │ Analyst  │ │ Engineer │ │Strategist│    │
-│  └──────────┘ └──────────┘ └──────────┘    │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐    │
-│  │  HIMERU  │ │  RX-0    │ │ VELVET   │    │
-│  │Compliance│ │ Auditor  │ │  ARC     │    │
-│  └──────────┘ └──────────┘ └──────────┘    │
-└──────────────────┬──────────────────────────┘
-                   │
-    ┌──────────────▼──────────────┐
-    │       TRIAD GATE            │  ← Governance: 3-persona deliberation
-    │  KAGEROU + HIMERU + NOCTIS  │     Free models cannot issue PASS
-    └──────────────┬──────────────┘
-                   │
-    ┌──────────────▼──────────────┐
-    │   Governed Model Router     │  ← V5.2, 13 slots, 5 keys, hash-only receipts
-    │   (OpenRouter + ILMU)       │     330 total attempts, circuit breaker
-    └──────────────┬──────────────┘
-                   │
-    ┌──────────────▼──────────────┐
-    │   Casper Integration Layer  │
-    │  ┌─────────┐ ┌──────────┐  │
-    │  │ MCP     │ │CSPR.click│  │  ← On-chain queries + tx signing
-    │  │ Server  │ │  Skill   │  │
-    │  └─────────┘ └──────────┘  │
-    │  ┌─────────┐ ┌──────────┐  │
-    │  │  x402   │ │CSPR.cloud│  │  ← Micropayments + middleware
-    │  │ Payment │ │   API    │  │
-    │  └─────────┘ └──────────┘  │
-    └──────────────┬──────────────┘
-                   │
-              ┌────▼────┐
-              │ Testnet │
-              └─────────┘
+USER INTENT
+    ↓
+AI PROPOSAL (advisory only)
+    ↓
+STRUCTURED PROPOSAL (schema validation)
+    ↓
+POLICY ENGINE (deterministic checks)
+    ↓
+HUMAN REVIEW (explicit confirmation)
+    ↓
+CASPER TESTNET TRANSACTION
+    ↓
+GOVERNED RECEIPT (hash-bound, verifiable)
 ```
 
 ---
@@ -74,59 +47,58 @@ Agent Swarm (OpenRouter Free Models)
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env    # add OPENROUTER_SUBAGENT_KEY + CSPR_CLICK_API_KEY
+cp .env.example .env    # fill in values
 
-# List available personas
-python src/orchestrator.py --list-personas
+# Run the existing identity + policy + receipt demo
+python demo/run_demo.py
 
-# Run with specific personas
-python src/orchestrator.py --brief "Analyze Casper testnet yield opportunities" \
-  --personas NOCTIS,EXIA,KAGEROU,HIMERU,RX-0 --casper
-
-# Full demo with all 6 personas + Casper integration + TRIAD gate
-python src/orchestrator.py --demo --emit-json
+# Run tests
+pytest tests/ -v
 ```
 
-### Environment Variables
+---
 
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `OPENROUTER_SUBAGENT_KEY` | Yes | OpenRouter API key for free-model personas |
-| `OPENROUTER_API_KEY_1..5` | No | Multi-key rotation (V5.2 governed router) |
-| `ILMUCHAT_API_KEY` | No | ILMU Chat terminal fallback |
-| `CSPR_CLICK_API_KEY` | No | Casper Testnet wallet + tx signing |
-| `T3_MOCK` | No | Use mock crypto for local dev (`true`/`false`) |
+## Stack
+
+- **Backend:** Python 3.12
+- **Crypto:** `cryptography` library (Ed25519)
+- **Cas:** Casper Testnet (via CSPR.click or direct RPC)
+- **Testing:** pytest
+- **CI:** GitHub Actions
 
 ---
 
-## Agent Personas
+## Project Structure
 
-| Persona | Role | Model Lane | Casper Action |
-|---------|------|------------|---------------|
-| **KAGEROU** | Strategist/Orchestrator | `deepseek-v4-flash:free` | Proposes yield opportunities, initiates deliberation |
-| **NOCTIS** | Forensic Analyst | `qwen3-next-80b:free` | On-chain data analysis, anomaly detection |
-| **EXIA** | Execution Engine | `llama-3.3-70b:free` | Signs tx via CSPR.click, queries MCP |
-| **HIMERU** | Compliance Officer | `gemma-4-31b-it:free` | Policy validation, forbidden-action blocker |
-| **RX-0** | Data Integrity | `nemotron-3-super:free` | Receipt verification, reputation scoring |
-| **VELVET_ARC** | Archivist | `llama-3.3-70b:free` | ARCLOG scene logging, instinct compression |
-
----
-
-## Governance Model
-
-### TRIAD Gate
-Every action requires consensus from 3 reviewer personas:
-1. **KAGEROU** — Is the strategy sound?
-2. **HIMERU** — Is it compliant?
-3. **NOCTIS** — Is the evidence solid?
-
-Free-model outputs provide evidence but **cannot issue PASS alone** — only the main engine can authorize execution.
-
-### Receipt Ledger
-Every TRIAD verdict and agent action produces a hash-bound receipt:
-- `sha256(canonical_json(receipt))` as integrity proof
-- No raw secrets, prompts, or keys in receipts
-- Tamper-evident: any mutation breaks the hash
+```
+├── README.md
+├── LICENSE
+├── .gitignore
+├── .env.example
+├── requirements.txt
+├── .github/workflows/ci.yml
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── SECURITY.md
+│   ├── TESTNET_DEPLOYMENT.md
+│   ├── DEMO_SCRIPT.md
+│   └── examples/
+│       └── example-receipt.json
+├── src/
+│   ├── terminal3_agent_auth_adapter.py
+│   ├── governed_action_gate.py
+│   └── execution_receipt.py
+├── demo/
+│   ├── run_demo.py
+│   └── sample_sanitized_receipts/
+├── tests/
+│   ├── test_valid_identity.py
+│   ├── test_forbidden_action.py
+│   ├── test_invalid_identity.py
+│   ├── test_replay_denial.py
+│   └── test_receipt_integrity.py
+└── runtime/receipts/    (gitignored)
+```
 
 ---
 
@@ -136,33 +108,13 @@ Every TRIAD verdict and agent action produces a hash-bound receipt:
 pytest tests/ -v
 ```
 
-| File | Tests | Coverage |
-|------|-------|----------|
-| `test_valid_identity.py` | 3 | Key derivation, signing, verification |
-| `test_forbidden_action.py` | 3 | POLICY_MODIFY, PERSONA_WRITE, unknown denied |
-| `test_invalid_identity.py` | 3 | Missing proof, garbage sig, missing nonce |
-| `test_replay_denial.py` | 2 | Nonce replay → NONCE_REPLAYED |
-| `test_receipt_integrity.py` | 4 | Tamper detection, deny receipt, fingerprint |
-
-**15/15 tests passing.**
+`15/15 tests passing.`
 
 ---
 
-## Known Limitations
+## Status
 
-- Odra smart contracts not yet compiled (requires Rust toolchain)
-- Casper Testnet tx signing requires `CSPR_CLICK_API_KEY`
-- x402 micropayment facilitator not yet integrated
-- MCP server calls are mocked in demo mode
-
-## Roadmap
-
-- [ ] Deploy AgentRegistry contract on Casper Testnet (Odra)
-- [ ] Implement x402 micropayment flow for agent-to-agent payments
-- [ ] Add ActionReceiptLedger on-chain contract
-- [ ] Build web dashboard for real-time agent monitoring
-- [ ] Integrate CSPR.trade MCP for live DeFi data
-- [ ] Multi-agent DAO governance execution
+`SCAFFOLDED` — Phase 0 complete. Core identity/policy/receipt components from Part 1 are preserved. Part 2 build proceeds from here.
 
 ---
 
