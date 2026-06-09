@@ -29,8 +29,11 @@ This repo's Terminal 3-related implementation is concentrated in a small set of 
   - Same nonce reused -> denied with `NONCE_REPLAYED`
 - `demo/run_demo.py`
   - End-to-end demo flow with sanitized receipts
+- `demo/run_t3n_token_demo.py`
+  - Uses the configured `T3N_API_KEY` and `DID` with `T3_MOCK=false`
+  - Signs an action proof and verifies the governed path without exposing the token
 - `demo/check_t3n_api.py`
-  - Live Terminal 3 token/DID API check with sanitized output
+  - Optional Terminal 3 HTTP token/DID check with sanitized output
 
 ## Scope Clarification
 
@@ -47,12 +50,15 @@ What is not claimed here:
 - Remote attestation infrastructure
 - A production-complete official SDK drop-in
 
-This project demonstrates the governed execution pattern using Terminal 3 token/DID validation, a real Ed25519 proof flow, and a clear audit trail.
+This project demonstrates the governed execution pattern using a configured T3N token and DID, a real Ed25519 proof flow, and a clear audit trail.
 
 ## Suggested Review Commands
 
 ```bash
 pytest tests/ -v
+python demo/run_t3n_token_demo.py
 python demo/check_t3n_api.py
 python demo/run_demo.py
 ```
+
+Use `python demo/check_t3n_api.py --strict` only when the supplied token is expected to be accepted by Terminal 3's hosted HTTP API.

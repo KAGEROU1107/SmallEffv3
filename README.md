@@ -22,6 +22,8 @@ If you are reviewing the **Terminal 3 / T3 SDK-auth path**, start here:
   Shows replay protection on the same nonce.
 - `demo/run_demo.py`
   Runs the end-to-end governed flow and emits sanitized receipts.
+- `demo/run_t3n_token_demo.py`
+  Uses `T3N_API_KEY` and `DID` in live crypto mode, signs an action proof, and verifies the governed path.
 - `docs/REVIEWER_GUIDE.md`
   One-page map of the exact auth, gate, test, and demo files to review.
 
@@ -67,10 +69,17 @@ ALLOW  or  DENY (IDENTITY_INVALID | ACTION_FORBIDDEN | NONCE_REPLAYED)
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env        # add your T3N_API_KEY and DID
-python demo/check_t3n_api.py # verify Terminal 3 token/DID access
+cp .env.example .env           # add your T3N_API_KEY and DID
+python demo/run_t3n_token_demo.py
 python demo/run_demo.py     # run all 5 scenarios
 pytest tests/ -v            # run all 12 tests
+```
+
+Optional HTTP credential check:
+
+```bash
+python demo/check_t3n_api.py          # informational, always safe for local demos
+python demo/check_t3n_api.py --strict # fails if Terminal 3 rejects x-api-token
 ```
 
 ### Environment Variables
@@ -89,7 +98,8 @@ pytest tests/ -v            # run all 12 tests
 
 | Topic | Detail |
 |---|---|
-| Token API | `GET /v1/did` with `x-api-token` header via `src/terminal3_api_client.py` |
+| Token proof demo | `demo/run_t3n_token_demo.py` uses `T3N_API_KEY` + `DID` with `T3_MOCK=false` |
+| Token API check | `GET /v1/did` with `x-api-token` header via `src/terminal3_api_client.py` |
 | Key format | `0x` + 64 hex chars (32-byte Ed25519 private key seed) |
 | Live mode | `Ed25519PrivateKey.from_private_bytes(bytes.fromhex(key[2:]))` |
 | Mock mode | Returns fixture identity — no real crypto, no network call |
@@ -116,7 +126,8 @@ pytest tests/ -v            # run all 12 tests
 | Component | Status |
 |---|---|
 | Ed25519 key derivation + signing | **Real** (`cryptography` library) |
-| Terminal 3 DID API check | **Real** (`GET https://staging.terminal3.io/v1/did`) |
+| T3N token proof demo | **Real** (`T3_MOCK=false`, signs with configured token) |
+| Terminal 3 DID API check | **Implemented** (`GET https://staging.terminal3.io/v1/did`; depends on token permissions) |
 | Nonce store atomic file lock | **Real** (filesystem `x`-mode) |
 | sha256 hash-bound receipts | **Real** |
 | Policy enforcement | **Real** |
