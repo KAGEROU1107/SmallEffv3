@@ -6,6 +6,30 @@
 
 ---
 
+## Reviewer Quick Pointer
+
+If you are reviewing the **Terminal 3 / T3 SDK-auth path**, start here:
+
+- `src/terminal3_agent_auth_adapter.py`
+  Loads `TERMINAL3_API_KEY`, derives the Ed25519 key, signs the action proof, and verifies the proof.
+- `src/governed_action_gate.py`
+  Consumes the verified proof, applies policy, and blocks nonce replay.
+- `tests/test_valid_identity.py`
+  Shows the valid signed-proof path.
+- `tests/test_replay_denial.py`
+  Shows replay protection on the same nonce.
+- `demo/run_demo.py`
+  Runs the end-to-end governed flow and emits sanitized receipts.
+- `docs/REVIEWER_GUIDE.md`
+  One-page map of the exact auth, gate, test, and demo files to review.
+
+Important scope note:
+- This repo contains the **implemented auth adapter and governed execution flow**.
+- It does **not** claim a full hosted Terminal 3 backend or attestation service.
+- The real implemented piece is the local cryptographic proof flow around the Terminal 3 API key.
+
+---
+
 ## The Problem
 
 AI agents have no identity. Nothing stops a fake agent from impersonating a real one, replaying old requests, or acting without an audit trail.
