@@ -7,6 +7,7 @@ from pathlib import Path
 def _scan_for_secrets(data: str) -> bool:
     patterns = [
         "TERMINAL3_API_KEY",
+        "T3N_API_KEY",
         "ILMUCHAT_API_KEY",
         "sk-",
         "sk-or-",
@@ -15,9 +16,9 @@ def _scan_for_secrets(data: str) -> bool:
     for pattern in patterns:
         if pattern in data:
             return True
-    env_key = os.getenv("TERMINAL3_API_KEY", "")
-    if len(env_key) > 8:
-        if env_key[:8] in data:
+    for env_name in ("T3N_API_KEY", "TERMINAL3_API_KEY"):
+        env_key = os.getenv(env_name, "")
+        if len(env_key) > 8 and env_key[:8] in data:
             return True
     return False
 

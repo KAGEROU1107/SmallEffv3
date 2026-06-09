@@ -4,6 +4,10 @@ import uuid
 import json
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 if "T3_MOCK" not in os.environ:
     os.environ["T3_MOCK"] = "true"
 

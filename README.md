@@ -10,8 +10,10 @@
 
 If you are reviewing the **Terminal 3 / T3 SDK-auth path**, start here:
 
+- `src/terminal3_api_client.py`
+  Calls Terminal 3's documented token API with `x-api-token` and checks `GET /v1/did`.
 - `src/terminal3_agent_auth_adapter.py`
-  Loads `TERMINAL3_API_KEY`, derives the Ed25519 key, signs the action proof, and verifies the proof.
+  Loads `T3N_API_KEY`, binds `DID`, derives the Ed25519 key, signs the action proof, and verifies the proof.
 - `src/governed_action_gate.py`
   Consumes the verified proof, applies policy, and blocks nonce replay.
 - `tests/test_valid_identity.py`
@@ -24,9 +26,9 @@ If you are reviewing the **Terminal 3 / T3 SDK-auth path**, start here:
   One-page map of the exact auth, gate, test, and demo files to review.
 
 Important scope note:
-- This repo contains the **implemented auth adapter and governed execution flow**.
+- This repo contains the **implemented Terminal 3 token API check, auth adapter, and governed execution flow**.
 - It does **not** claim a full hosted Terminal 3 backend or attestation service.
-- The real implemented piece is the local cryptographic proof flow around the Terminal 3 API key.
+- The real implemented pieces are the Terminal 3 DID API check and the local cryptographic proof flow around the Terminal 3 key.
 
 ---
 
@@ -65,7 +67,8 @@ ALLOW  or  DENY (IDENTITY_INVALID | ACTION_FORBIDDEN | NONCE_REPLAYED)
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env        # add your TERMINAL3_API_KEY
+cp .env.example .env        # add your T3N_API_KEY and DID
+python demo/check_t3n_api.py # verify Terminal 3 token/DID access
 python demo/run_demo.py     # run all 5 scenarios
 pytest tests/ -v            # run all 12 tests
 ```
@@ -74,8 +77,11 @@ pytest tests/ -v            # run all 12 tests
 
 | Variable | What it does | Example |
 |---|---|---|
-| `TERMINAL3_API_KEY` | 0x-prefixed hex string — 32-byte Ed25519 seed | `0xa1b2c3...ef` (64 hex chars) |
+| `T3N_API_KEY` | Terminal 3 token used as `x-api-token`; also accepted as 32-byte Ed25519 seed for local proof signing | `0xa1b2c3...ef` |
+| `DID` | Terminal 3 DID bound into action proofs and checked against `/v1/did` | `did:t3n:...` |
+| `TERMINAL3_API_KEY` | Backward-compatible alias for older local runs | `0xa1b2c3...ef` |
 | `T3_MOCK` | Skip real crypto for local dev | `true` / `false` |
+| `T3N_BASE_URL` | Terminal 3 API base URL | `https://staging.terminal3.io` |
 
 ---
 
@@ -83,6 +89,7 @@ pytest tests/ -v            # run all 12 tests
 
 | Topic | Detail |
 |---|---|
+| Token API | `GET /v1/did` with `x-api-token` header via `src/terminal3_api_client.py` |
 | Key format | `0x` + 64 hex chars (32-byte Ed25519 private key seed) |
 | Live mode | `Ed25519PrivateKey.from_private_bytes(bytes.fromhex(key[2:]))` |
 | Mock mode | Returns fixture identity — no real crypto, no network call |
@@ -109,10 +116,11 @@ pytest tests/ -v            # run all 12 tests
 | Component | Status |
 |---|---|
 | Ed25519 key derivation + signing | **Real** (`cryptography` library) |
+| Terminal 3 DID API check | **Real** (`GET https://staging.terminal3.io/v1/did`) |
 | Nonce store atomic file lock | **Real** (filesystem `x`-mode) |
 | sha256 hash-bound receipts | **Real** |
 | Policy enforcement | **Real** |
-| Terminal 3 live API endpoint | **Mocked** (`T3_MOCK=true` in demo) |
+| Terminal 3 live API endpoint | **Implemented for DID lookup** (`demo/check_t3n_api.py`) |
 | Live network attestation | **Mocked** |
 | Distributed nonce coordination | **Not implemented** |
 

@@ -22,7 +22,7 @@ NONCE_STORE_DIR.mkdir(parents=True, exist_ok=True)
 POLICY_VERSION = "1.0"
 
 # Secrets to scan for in receipts (env var names — not values)
-_SECRET_MARKERS = ["TERMINAL3_API_KEY", "ILMUCHAT_API_KEY", "OPENROUTER", "0xdd"]
+_SECRET_MARKERS = ["T3N_API_KEY", "TERMINAL3_API_KEY", "ILMUCHAT_API_KEY", "OPENROUTER", "0xdd"]
 
 
 def _nonce_path(nonce: str) -> Path:

@@ -6,6 +6,8 @@ import datetime
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
+from src.terminal3_api_client import get_configured_did, get_t3n_api_key
+
 ADAPTER_AUTHORITY = "UNTRUSTED_ADVISORY"
 AUDIENCE = "small-effv3-gate"
 PROOF_TTL_SECONDS = 300
@@ -31,20 +33,21 @@ def _is_mock() -> bool:
 
 
 def _load_private_key() -> tuple:
-    """Returns (Ed25519PrivateKey, pub_key_hex, agent_id) or raises."""
-    raw = os.getenv("TERMINAL3_API_KEY", "").strip()
+    """Returns (Ed25519PrivateKey, pub_key_hex, agent_id, did) or raises."""
+    raw = get_t3n_api_key()
     if not raw:
-        raise ValueError("TERMINAL3_API_KEY not set")
+        raise ValueError("T3N_API_KEY not set")
     if raw.startswith("0x"):
         raw = raw[2:]
     if len(raw) != 64:
-        raise ValueError("TERMINAL3_API_KEY must be 32 bytes (64 hex chars) after 0x")
+        raise ValueError("T3N_API_KEY must be 32 bytes (64 hex chars) after 0x")
     key_bytes = bytes.fromhex(raw)
     priv = Ed25519PrivateKey.from_private_bytes(key_bytes)
     pub_bytes = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
     pub_hex = pub_bytes.hex()
     agent_id = key_fingerprint(pub_hex)
-    return priv, pub_hex, agent_id
+    did = get_configured_did()
+    return priv, pub_hex, agent_id, did
 
 
 def sign_action_request(action: str, nonce: str) -> dict:
@@ -59,6 +62,7 @@ def sign_action_request(action: str, nonce: str) -> dict:
     if _is_mock():
         payload = {
             "agent_id": MOCK_AGENT_ID,
+            "did": get_configured_did() or "did:t3n:mock-agent",
             "public_key_hex": MOCK_PUBLIC_KEY_HEX,
             "action": action,
             "nonce": nonce,
@@ -73,9 +77,10 @@ def sign_action_request(action: str, nonce: str) -> dict:
             "signature_hex": "deadbeef" + "0" * 120,  # Mock signature (128 hex chars = 64 bytes)
         }
 
-    priv, pub_hex, agent_id = _load_private_key()
+    priv, pub_hex, agent_id, did = _load_private_key()
     payload = {
         "agent_id": agent_id,
+        "did": did,
         "public_key_hex": pub_hex,
         "action": action,
         "nonce": nonce,
@@ -100,7 +105,7 @@ def verify_action_request(proof: dict, expected_action: str) -> tuple[bool, str]
     Mock mode: skips Ed25519 and fingerprint checks but still validates structure.
     """
     required = [
-        "agent_id", "public_key_hex", "action", "nonce",
+        "agent_id", "did", "public_key_hex", "action", "nonce",
         "issued_at", "expires_at", "audience", "signature_hex", "payload_hash",
     ]
     for field in required:
@@ -124,7 +129,7 @@ def verify_action_request(proof: dict, expected_action: str) -> tuple[bool, str]
         return (False, "IDENTITY_INVALID")
 
     # Reconstruct payload exactly as sign_action_request built it (excludes payload_hash + sig)
-    _PAYLOAD_KEYS = ["agent_id", "public_key_hex", "action", "nonce", "issued_at", "expires_at", "audience"]
+    _PAYLOAD_KEYS = ["agent_id", "did", "public_key_hex", "action", "nonce", "issued_at", "expires_at", "audience"]
     payload_fields = {k: proof[k] for k in _PAYLOAD_KEYS}
     expected_hash = _sha256(_canonical(payload_fields))
     if proof["payload_hash"] != expected_hash:
