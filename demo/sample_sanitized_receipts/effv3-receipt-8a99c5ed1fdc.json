@@ -1,0 +1,15 @@
+{
+  "receipt_id": "effv3-receipt-8a99c5ed1fdc",
+  "decision": "DENY",
+  "ts": "2026-06-09T04:22:53.998662+00:00",
+  "action": "POLICY_MODIFY",
+  "agent_fingerprint": "1145d4c66d31",
+  "denial_code": "ACTION_FORBIDDEN",
+  "nonce_hash": "07da557940f8ce6618d5af58d560629e30cf1fc3787d66477636b5203fb0677d",
+  "proof_hash": "6110f2e61c82d70262471fe0ea0c254491e7d269627f5183e1cdf48d3c8a6358",
+  "policy_version": "1.0",
+  "spec_version": "1.0",
+  "raw_secret_included": false,
+  "authority": "UNTRUSTED_ADVISORY",
+  "receipt_hash": "8e6530080120354bd77717f7a521e77b899e308cc5d64a14e4f808899841540d"
+}
