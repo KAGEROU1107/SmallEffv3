@@ -24,6 +24,8 @@ If you are reviewing the **Terminal 3 / T3N ADK auth path**, start here:
   Runs the end-to-end governed flow and emits sanitized receipts.
 - `docs/REVIEWER_GUIDE.md`
   One-page map of the exact auth, gate, test, and demo files to review.
+- `docs/TEST_RESULTS.md`
+  Current local verification results for the T3N proof demo, full demo, and tests.
 
 Important scope note:
 - This repo contains the **implemented T3N developer-key proof, auth adapter, and governed execution flow**.

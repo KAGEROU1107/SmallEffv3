@@ -30,6 +30,8 @@ This repo's Terminal 3-related implementation is concentrated in a small set of 
   - End-to-end demo flow with sanitized receipts
 - `demo/check_t3n_api.py`
   - Optional legacy Terminal 3 HTTP token/DID check with sanitized output
+- `docs/TEST_RESULTS.md`
+  - Current verification output for the ADK proof demo, full demo, tests, and optional HTTP diagnostic
 
 ## Scope Clarification
 
