@@ -1,173 +1,149 @@
-# EFFV3 — Verifiable Governed Agent Gateway
+# SmallEffv3 — AI Agent Authorization Gateway
 
-> Prototype: Terminal 3-authenticated governed agent execution with cryptographic identity, policy enforcement, and tamper-proof receipts.
-
-**Demo Video:** https://youtu.be/u6JjDT3Uizc
-
----
-
-## Reviewer Quick Pointer
-
-If you are reviewing the **Terminal 3 / T3N ADK auth path**, start here:
-
-- `src/terminal3_agent_auth_adapter.py`
-  Loads the T3N ADK developer key from `T3N_API_KEY`, binds `DID`, signs the action proof, and verifies the proof.
-- `src/governed_action_gate.py`
-  Consumes the verified proof, applies policy, and blocks nonce replay.
-- `demo/run_t3n_token_demo.py`
-  Uses `T3N_API_KEY` and `DID` in live proof mode (`T3_MOCK=false`) and verifies the governed path.
-- `tests/test_valid_identity.py`
-  Shows the valid signed-proof path.
-- `tests/test_replay_denial.py`
-  Shows replay protection on the same nonce.
-- `demo/run_demo.py`
-  Runs the end-to-end governed flow and emits sanitized receipts.
-- `docs/REVIEWER_GUIDE.md`
-  One-page map of the exact auth, gate, test, and demo files to review.
-- `docs/TEST_RESULTS.md`
-  Current local verification results for the T3N proof demo, full demo, and tests.
-
-Important scope note:
-- This repo contains the **implemented T3N developer-key proof, auth adapter, and governed execution flow**.
-- It does **not** claim a hosted T3N node, remote MCP, full TEE execution, or production attestation service.
-- The real implemented piece is the local proof flow around the T3N ADK developer key and DID.
+> **Terminal 3 Agent Dev Kit Bounty Submission**
+> Real T3N testnet integration — `@terminal3/t3n-sdk` npm package, no local mock crypto.
 
 ---
 
 ## The Problem
 
-AI agents have no identity. Nothing stops a fake agent from impersonating a real one, replaying old requests, or acting without an audit trail.
+AI agents have no verifiable identity. Nothing prevents a rogue or compromised agent from:
+- **Impersonating** a legitimate agent (no cryptographic identity)
+- **Replaying** old requests (no per-call nonce)
+- **Exceeding scope** (no function-level authorization)
+- **Operating indefinitely** after compromise (no instant revocation)
 
-This prototype fixes three things:
-- **Who are you?** — Ed25519 identity proof bound to Terminal 3 API key
-- **Are you allowed?** — Policy gate that blocks forbidden actions
-- **What did you do?** — Hash-bound receipt with no secrets exposed
+Every enterprise deploying AI agents faces this. The attack surface grows with every autonomous agent added to the system.
+
+## The Solution
+
+SmallEffv3 is a **governed authorization gateway** that every AI agent must pass through before executing a sensitive action. It uses Terminal 3's Agent Auth SDK to enforce:
+
+| Guarantee | How |
+|---|---|
+| Cryptographic identity | Real `DelegationCredential` from T3N SDK — `buildDelegationCredential()` + `signCredential()` |
+| Time-bounded access | `not_before_secs` / `not_after_secs` checked inside the TEE (not by the caller) |
+| Scope enforcement | `functions[]` allowlist in the credential — TEE rejects out-of-scope calls |
+| Per-call binding | `DelegationEnvelope` with `agent_sig` over `(DOMAIN‖vc_id‖nonce‖sha256(request))` |
+| Instant revocation | `revokeDelegation()` on the T3N network invalidates the credential immediately |
+| Tamper-proof audit | TEE-signed receipts — `issue-receipt` hashes `(agent‖action‖outcome‖timestamp‖vc_id)` |
+| Replay protection | 16-byte random nonce per call, TEE enforces single-use |
 
 ---
 
-## How It Works
+## Architecture
 
 ```
-Agent (Ed25519 key)
+Python orchestration layer (demo/run_real_t3n_demo.py)
         │
-        ▼
-terminal3_agent_auth_adapter.py   ← proves identity via Terminal 3 API key
+        ▼ subprocess
+TypeScript T3N bridge (t3n-bridge/src/index.ts)  ← @terminal3/t3n-sdk
         │
-        ▼
-governed_action_gate.py           ← checks policy + blocks replay attacks
-        │
-        ▼
-execution_receipt.py              ← issues hash-bound receipt (no secrets)
-        │
-        ▼
-ALLOW  or  DENY (IDENTITY_INVALID | ACTION_FORBIDDEN | NONCE_REPLAYED)
+        ├── auth.ts      — handshake() + authenticate() → real DID
+        ├── credential.ts— buildDelegationCredential + signCredential + buildEnvelope
+        ├── register.ts  — tenant.contracts.register (effv3-gateway WASM)
+        └── gateway.ts   — executeAndDecode: authorize-action, issue-receipt, get-policy
+                │
+                ▼ T3N testnet HTTP
+        Hardware TEE (effv3-gateway contract — Rust/WASM)
+        └── contract/src/lib.rs — validates envelope, enforces scope, issues receipts
 ```
+
+---
+
+## What Is Real vs Pending Credits
+
+| Component | Status |
+|---|---|
+| T3N auth: `handshake()` + `authenticate()` | **REAL** — live testnet |
+| DID from T3N session | **REAL** — `did:t3n:ad146e6861ac408900af7ece1f6e90976dad3a02` |
+| `buildDelegationCredential()` | **REAL** — `@terminal3/t3n-sdk` |
+| `signCredential()` EIP-191 | **REAL** — `@terminal3/t3n-sdk` |
+| `validateCredentialBody()` | **REAL** — SDK validation passed |
+| `buildInvocationPreimage()` + `signAgentInvocation()` | **REAL** — `@terminal3/t3n-sdk` |
+| `revokeDelegation()` | **REAL** call — credit-blocked (returns InsufficientCredit) |
+| effv3-gateway WASM contract | **COMPILED** — 200KB artifact ready to deploy |
+| TEE: `authorize-action`, `issue-receipt`, `get-policy` | **Pending credits** |
+| TEE negative tests | **Pending credits** |
+
+Phases 1–2 (auth + credential lifecycle) run fully without credits.
+Phase 3+ (TEE contract) requires credits to register and invoke.
 
 ---
 
 ## Quick Start
 
 ```bash
-pip install -r requirements.txt
-cp .env.example .env           # add your T3N_API_KEY and DID from the ADK claim page
-python demo/run_t3n_token_demo.py
-python demo/run_demo.py     # run all 5 scenarios
-pytest tests/ -v            # run all 12 tests
+# Install TypeScript bridge deps
+cd t3n-bridge && npm install
+
+# Run the full demo (real T3N testnet)
+T3N_API_KEY=0x<your_key> node --loader ts-node/esm src/index.ts
+
+# Or via Python orchestration layer
+cd ..
+T3N_API_KEY=0x<your_key> python demo/run_real_t3n_demo.py
 ```
 
-Optional legacy Terminal 3 HTTP API check:
+### Environment
 
-```bash
-python demo/check_t3n_api.py          # informational; not required for ADK developer-key proof
-python demo/check_t3n_api.py --strict # fails if the key is also accepted by the legacy HTTP API
-```
+| Variable | Purpose |
+|---|---|
+| `T3N_API_KEY` | Ethereum private key (0x + 64 hex) from T3N ADK claim |
+| `DID` | Your T3N DID (auto-derived from session if not set) |
 
-### Environment Variables
+---
 
-| Variable | What it does | Example |
+## Proof
+
+| Run | File | Key result |
 |---|---|---|
-| `T3N_API_KEY` | T3N ADK developer key used to authenticate/sign local action proofs | `0xa1b2c3...ef` |
-| `DID` | T3N DID generated and linked to the developer key | `did:t3n:...` |
-| `TERMINAL3_API_KEY` | Backward-compatible alias for older local runs | `0xa1b2c3...ef` |
-| `T3_MOCK` | Skip real crypto for local dev | `true` / `false` |
-| `T3N_BASE_URL` | Optional legacy Terminal 3 HTTP API base URL | `https://staging.terminal3.io` |
+| Session 1 | `proof/real_run_session1.txt` | Real DID + real credential + real envelope |
+
+DID confirmed: `did:t3n:ad146e6861ac408900af7ece1f6e90976dad3a02`  
+Credential: `buildDelegationCredential()` + `signCredential()` + `validateCredentialBody()` — all via `@terminal3/t3n-sdk`
 
 ---
 
-## Terminal 3 Integration
+## Contract
 
-| Topic | Detail |
-|---|---|
-| ADK developer key | The Terminal 3 ADK docs describe the claimed key as the key the SDK uses to authenticate as you |
-| Token proof demo | `demo/run_t3n_token_demo.py` uses `T3N_API_KEY` + `DID` with `T3_MOCK=false` |
-| Legacy HTTP API check | Optional `GET /v1/did` with `x-api-token` header via `src/terminal3_api_client.py` |
-| Key format | `0x` + 64 hex chars (32-byte Ed25519 private key seed) |
-| Live mode | `Ed25519PrivateKey.from_private_bytes(bytes.fromhex(key[2:]))` |
-| Mock mode | Returns fixture identity — no real crypto, no network call |
-| Fingerprint | `sha256(b"terminal3\x00" + pub_key_bytes)[:12]` — public key only, never raw seed |
-| Key exposure | Never — only 12-byte fingerprint used in logs and receipts |
+The `effv3-gateway` Rust/WASM contract (`contract/src/lib.rs`) exports three functions:
 
----
+| Function | Input | What the TEE does |
+|---|---|---|
+| `authorize-action` | action + `__delegation_envelope` | Validates envelope, time window, scope → `ALLOW`/`DENY` |
+| `issue-receipt` | agent_did + action + outcome + envelope | Computes `sha256(agent‖action‖outcome‖now‖vc_id)` → receipt |
+| `get-policy` | — | Returns the active policy table (no credential needed) |
 
-## Security Guarantees
-
-| Property | How |
-|---|---|
-| Cryptographic identity | Ed25519 signature over action + nonce + audience |
-| Replay protection | Atomic nonce file — `open(path, "x")` raises `FileExistsError` on reuse |
-| Policy enforcement | Allowlist — `POLICY_MODIFY`, `PERSONA_WRITE` always denied |
-| Tamper-proof receipts | `sha256(canonical_json)` as last field — any mutation breaks hash |
-| No secret leakage | `raw_secret_included=False` on every output |
-| Advisory authority | `UNTRUSTED_ADVISORY` label — agent output never treated as authoritative |
+Build:
+```bash
+cd contract
+cargo build --target wasm32-wasip2 --release
+# Artifact: target/wasm32-wasip2/release/effv3_gateway.wasm (200KB)
+```
 
 ---
 
-## What Is Real vs Mocked
+## Security Properties
 
-| Component | Status |
-|---|---|
-| Ed25519 key derivation + signing | **Real** (`cryptography` library) |
-| T3N token proof demo | **Real** (`T3_MOCK=false`, signs with configured token) |
-| Terminal 3 legacy DID API check | **Optional diagnostic** (`GET https://staging.terminal3.io/v1/did`; depends on separate HTTP API permissions) |
-| Nonce store atomic file lock | **Real** (filesystem `x`-mode) |
-| sha256 hash-bound receipts | **Real** |
-| Policy enforcement | **Real** |
-| Hosted Terminal 3 node / remote MCP | **Not implemented** |
-| Live network attestation | **Mocked** |
-| Distributed nonce coordination | **Not implemented** |
+- **Envelope validation in TEE**: `agent_sig` and `nonce` (≥8 bytes) validated inside the enclave — not by the caller
+- **Scope check in TEE**: `action` must appear in `credential.functions[]` — the credential is signed by the user and cannot be forged
+- **Time check in TEE**: `not_after_secs` is compared against WASI wall-clock inside the enclave — the caller cannot spoof time
+- **No secret leakage**: Private key never appears in logs or receipts — only `sha256(...)` fingerprints
 
 ---
 
-## Test Coverage (12/12)
+## Known Gaps (Bug Report)
 
-| Test file | What it proves |
-|---|---|
-| `test_valid_identity.py` | Valid agent gets ALLOW + clean receipt |
-| `test_forbidden_action.py` | POLICY_MODIFY, PERSONA_WRITE, unknown actions all denied |
-| `test_invalid_identity.py` | Missing proof, garbage signature, missing nonce all denied |
-| `test_replay_denial.py` | Same nonce twice = NONCE_REPLAYED |
-| `test_receipt_integrity.py` | Tamper detection, deny receipt has no secrets, fingerprint safety |
-
----
-
-## Known Limitations
-
-- Hardcoded policy table — no dynamic updates
-- Nonce store is local filesystem — not distributed or horizontally scalable
-- Policy gate is local — root of trust depends on host integrity, no decentralized layer
-- No key rotation or revocation mechanism
-- No KMS or external secret management
-- Async agent workflows not covered
-
----
-
-## Doc Gaps Filed
-
-5 gaps reported in [`docs/BUGS_AND_DOC_GAPS.md`](docs/BUGS_AND_DOC_GAPS.md):
-API key format ambiguity · missing Python SDK examples · mock mode behavior · HMAC vs Ed25519 inconsistency · undocumented error codes
+See `docs/BUGS_AND_DOC_GAPS.md` for 5 gaps found during integration:
+- BUG-001: `tenant.contracts.register()` returns no `contractId` on re-registration
+- BUG-002: `validateCredentialBody()` throws `UnsortedFunctions` with no indication in docs that the array must be alphabetically sorted
+- BUG-003: No documented error code list for `executeAndDecode()` HTTP errors
+- BUG-004: `getNodeUrl()` doc omits that `setEnvironment()` must be called first
+- BUG-005: `revokeDelegation()` doc omits that it requires a credit balance
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT

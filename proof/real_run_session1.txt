@@ -1,0 +1,43 @@
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
+=== SmallEffv3 — AI Agent Authorization Gateway (Terminal 3 ADK) ===
+
+[Phase 1] Authenticating with Terminal 3 testnet...
+  [+] handshake() complete
+  [+] authenticate() complete
+  [+] Real DID from session: did:t3n:ad146e6861ac408900af7ece1f6e90976dad3a02
+  [+] Ethereum address: 0x73d86af7c6949ff55ea869613cf1aa25a5e0c993
+
+[Phase 2] DelegationCredential lifecycle (real SDK, no credits needed)...
+  [+] Credential built
+      vc_id     : 9429789c96c98e6e4ad54610ade72256
+      functions : authorize-action, get-policy, issue-receipt
+      window    : 300s
+  [+] Signed with EIP-191 (user_sig): qyWLUU9dtEJS0B-ulNMD...
+  [+] validateCredentialBody() passed — T3N SDK accepted credential
+  [+] DelegationEnvelope built
+      agent_sig : LktXKtTYiiykb3UzdR7r...
+      nonce     : q_8HLSqSIamAw6iN...
+      req_hash  : RXeBFQazrpCA_SDuyT59...
+
+[Phase 3] TEE Gateway contract — effv3-gateway v1.0.0...
+  [~] Registration blocked: InsufficientCredit
+  [~] TEE call: HTTP 404: Method not found ({"code":"not_found","detail":"tenant contract z:ad146e6861ac408900af7ece1f6e90976dad3a02:eff
+
+[Phase 4] Revocation lifecycle...
+  [+] Short-lived credential issued (30s window): vc_id=d063550ac4bacc3df940f8f8bbd1939e
+  [~] revokeDelegation: HTTP 403: Forbidden ({"code":"forbidden","detail":"InsufficientCredit (account=ad146e6861ac408900af7ece1f6e90976dad3a02,
+  [+] Attempting post-revocation TEE call...
+  [+] post-revocation REJECTED: HTTP 404: Method not found ({"code":"not_found","detail":"tenant contract z:ad146e6861ac408900af7ece
+
+[Phase 5] Negative tests — gateway hardening...
+  [+] missing envelope: REJECTED: HTTP 404: Method not found ({"code":"not_found","detail":"tenant contract z:ad146e6861ac408900af7ece1f6e90976dad3a02:eff
+  [+] out-of-scope action (POLICY_MODIFY): REJECTED: HTTP 404: Method not found ({"code":"not_found","detail":"tenant contract z:ad146e6861ac408900af7ece1f6e90976dad3a02:eff
+
+=== SmallEffv3 Demo Summary ===
+  DID              : did:t3n:ad146e6861ac408900af7ece1f6e90976dad3a02
+  Credential vc_id : 9429789c96c98e6e4ad54610ade72256
+  SDK credential   : REAL (buildDelegationCredential + signCredential)
+  Envelope         : REAL (buildInvocationPreimage + signAgentInvocation)
+  Revocation call  : attempted (credit-blocked)
+  TEE invocations  : PENDING (credit refill required)
+  Negative tests   : 2/2 checked

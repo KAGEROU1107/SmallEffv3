@@ -1,0 +1,17 @@
+package small-effv3:gateway@1.0.0;
+
+world effv3-gateway {
+  /// Validate a DelegationEnvelope and determine if the requested action is authorized.
+  /// Input JSON: { action, agent_did, __delegation_envelope: { credential_jcs, user_sig, agent_sig, nonce, request_hash } }
+  /// Output JSON: { allowed, reason, action, agent_fingerprint, authorized_at_epoch, processed_in_tee }
+  export authorize-action: func(input: list<u8>) -> result<list<u8>, string>;
+
+  /// Issue a TEE-signed tamper-proof receipt for a completed action.
+  /// Input JSON: { agent_did, action, outcome, vc_id_hex, __delegation_envelope }
+  /// Output JSON: { receipt_id, agent_did, action, outcome, issued_in_tee, receipt_hash }
+  export issue-receipt: func(input: list<u8>) -> result<list<u8>, string>;
+
+  /// Return the active policy table (allowed/denied action categories).
+  /// No credential required — read-only.
+  export get-policy: func() -> result<list<u8>, string>;
+}

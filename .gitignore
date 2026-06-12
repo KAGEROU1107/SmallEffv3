@@ -6,3 +6,10 @@ data/nonce_store/
 *.egg-info/
 dist/
 .pytest_cache/
+
+# Rust build artifacts
+contract/target/
+
+# Node.js
+t3n-bridge/node_modules/
+t3n-bridge/dist/
